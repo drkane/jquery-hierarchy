@@ -12,7 +12,7 @@ The plugin is designed to take json data (presented as a string in a textarea), 
 
 The nested list is powered by a schema which defines which options are available, and what format they take (eg input, select, boolean, etc). The formats are based on HTML5 input types, rather than javascript data types. This schema takes the form of a javascript object, with the following syntax:
 
-```
+```JavaScript
 var schema = {
 	"_children":{	// this is always needed
 		"option_key": {							// used as the "name" variable for the created option
@@ -37,7 +37,7 @@ var schema = {
 
 The plugin is then activated through the following code:
 
-```
+```JavaScript
 $('#settings-textarea').hierarchySettings( schema, config );
 ```
 
