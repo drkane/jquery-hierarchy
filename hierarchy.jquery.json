@@ -1,0 +1,26 @@
+{
+	"name": "hierarchy",
+	"title": "jQuery hierarchy",
+	"description": "A jquery plugin which creates HTML form inputs for entering or editing a hierarchical array of settings, for example those used with a JavaScript charting array.",
+	"keywords": [
+		"config",
+		"hierarchy",
+		"nested"
+	],
+	"version": "0.1.0",
+	"author": {
+		"name": "David Kane"
+	},
+	"licenses": [
+		{
+			"type": "GPLv2",
+			"url": "https://github.com/drkane/jquery-hierarchy/blob/master/LICENSE"
+		}
+	],
+	"bugs": "https://github.com/drkane/jquery-hierarchy/issues",
+	"homepage": "https://github.com/drkane/jquery-hierarchy",
+	"docs": "https://github.com/drkane/jquery-hierarchy",
+	"dependencies": {
+		"jquery": ">=1.11"
+	}
+}
