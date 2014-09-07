@@ -1,4 +1,13 @@
-		//(function( $ ) {
+/*
+ * hierarchy options plugin v0.1
+ * https://github.com/drkane/jquery-hierarchy
+ *
+ * Copyright (c) 2014 David Kane. All rights reserved. 
+ * Released under the GPL
+ * 
+ * Date: 2014-09-07
+ */
+(function( $ ) {
 		
 			$.fn.reverse = [].reverse;
 			
@@ -197,7 +206,8 @@
 				existing_options: {}
 			}
 			
-		//});
+	
+});
 				}
 				
 				var create_option_element = function( option, selected_option, value ){
