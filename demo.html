@@ -7,10 +7,25 @@
 		<script type="text/javascript" src="jquery.hierarchy.js"></script>
 	</head>
 	<body>
-		<textarea rows="15" cols="50" id="hierarchy-settings"></textarea>
-		<div id="hierarchy-menu"></div>
+		<textarea rows="15" cols="50" id="hierarchy-settings">{
+  "legend": {
+    "title": "Hello",
+    "show_title": "true",
+    "width": "10"
+  },
+  "type": "bar",
+  "xAxis": [
+    {
+      "title":"Hello"
+    },
+    {
+      "title":"World"
+    }
+  ]
+}</textarea><br>
+		<button id="do-plugin">Activate plugin!</button>
 		<script type="text/javascript">
-		var chart_options = {
+		var chart_schema = {
 			"_children":{
 				"type": {
 					"_type":"select",
@@ -52,27 +67,13 @@
 			}
 		}
 		
-		var existing_options = {
-			"legend": {
-				"title": "Hello",
-				"show_title": "true",
-				"width": "10"
-			},
-			"type": "bar",
-			"xAxis": [
-				{
-					"title":"Dave"
-				},
-				{
-					"title":"Kane"
-				}
-			]
-		}
-		
 		$( document ).ready(function() {
-			
-			var settings = $('#hierarchy-menu').hierarchy_settings( chart_options, { "existing_options":existing_options } );
-		
+			$('#do-plugin').on('click', function(ev){
+				ev.preventDefault();
+				$('#hierarchy-settings').hierarchySettings( chart_schema, {showOriginalTextarea: true} );
+				$('#hierarchy-settings').attr("readonly", true);
+				$(this).remove();
+			});
 		});
 		
 		</script>

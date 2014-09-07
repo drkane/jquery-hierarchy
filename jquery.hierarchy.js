@@ -8,48 +8,71 @@
  * Date: 2014-09-07
  */
 (function( $ ) {
-		
+	
+	// additional function to reverse an array
 	$.fn.reverse = [].reverse;
 	
-	$.fn.hierarchy_settings = function( json_options, settings ){
+	// Main function
+	$.fn.hierarchySettings = function( schema, settings ){
 
-		var main_element = this;
-		var opts = $.extend( {}, $.fn.hierarchy_settings.defaults, settings );
-		opts["json_options"] = json_options;
+		// get configuration data
+		var config = $.extend( {}, $.fn.hierarchySettings.defaults, settings );
+		config["schema"] = schema;
+		if(!config.existingOptions){
+			config["existingOptions"] = $.parseJSON( $(this).val() );
+		}
+		config.jsonTextarea = this;
 		
+		// add a new div which will hold the list
+		config.containerDiv = $('<div/>');
+		config.containerDiv.attr("id", config.containerDivID);
+		$(config.jsonTextarea).after( config.containerDiv );
+		
+		// intitialise the function
 		var initialise = function(){
-		
-			var top_level_menu = create_hierarchy_menu( opts.json_options["_children"], opts.existing_options );
-			$(main_element).append( top_level_menu );
-			$(opts.json_container).val( JSON.stringify(get_json(), null, 2) );
+			
+			// add a new menu to the container div
+			var containerMenu = createHierarchyMenu( config.schema["_children"], config.existingOptions );
+			$(config.containerDiv).append( containerMenu );
+			
+			// hide the textarea if we're meant to
+			if(!config.showOriginalTextarea){
+				$(config.jsonTextarea).hide();
+			}
+			
+			// put the current configuration into the original textarea
+			$(config.jsonTextarea).val( JSON.stringify(getJson(), null, 2) );
 			
 		}
 		
-		var create_hierarchy_menu = function( list, existing_options ){
+		// add a ul with any already-selected options
+		var createHierarchyMenu = function( list, existingOptions ){
 			
-			var hierarchy_menu = $('<ul/>');
-			if( !existing_options ){ existing_options = {}; }
-			$.each( existing_options, function(k, v){
+			var hierarchyMenu = $('<ul/>');
+			if( !existingOptions ){ existingOptions = {}; }
+			$.each( existingOptions, function(k, v){
 				if( $.isArray( v ) ){
 					$.each( v, function(k2, v2){
-						hierarchy_menu.append( create_hierarchy_element( list, k, v2 ) );
+						hierarchyMenu.append( createHierarchyElement( list, k, v2 ) );
 					});
 				} else {
-					hierarchy_menu.append( create_hierarchy_element( list, k, v ) );
+					hierarchyMenu.append( createHierarchyElement( list, k, v ) );
 				}
 			});
-			hierarchy_menu.append( create_hierarchy_element( list ) );
-			return hierarchy_menu;
+			hierarchyMenu.append( createHierarchyElement( list ) );
+			return hierarchyMenu;
 			
 		}
 	
-		var create_hierarchy_element = function ( list, key, value ){
+		// create a <li> which can be used in a list
+		// the <li> contains a <select> element which can be used to select which key the value will relate to
+		var createHierarchyElement = function ( list, key, value ){
 		
 			var li = $('<li/>');
 			var select = $('<select/>');
 			var container = $('<span/>');
-			container.addClass( opts.menu_container )
-			select.addClass( opts.option_select )
+			container.addClass( config.menuContainerClass )
+			select.addClass( config.optionSelectClass )
 			
 			$(select).append('<option/>');
 			
@@ -66,9 +89,9 @@
 			});
 			
 			if( value ){
-				var selected_option = list[key];
-				if(selected_option){
-					container.append( create_option_element(selected_option, key, value) );
+				var selectedOption = list[key];
+				if(selectedOption){
+					container.append( createOptionElement(selectedOption, key, value) );
 					select.val( key );
 				}
 			}
@@ -78,18 +101,21 @@
 			return li;
 		}
 		
-		var create_option_element = function( option, selected_option, value ){
+		// add an element which is used to enter the actual value
+		// can either be a form input or select, or a new menu with child options
+		var createOptionElement = function( option, selectedOption, value ){
 			
-			var new_element = null;
+			var optionElement = null;
 			
+			// if it's a boolean then we do it as select anyway
 			if( option._type=="select" || option._type=="bool" ){
 			
 				if(option._type=="bool"){
 					option._options = [true, false];
 				}
-				new_element = $('<select/>');
-				new_element.attr("name", selected_option);
-				new_element.append('<option/>');
+				optionElement = $('<select/>');
+				optionElement.attr("name", selectedOption);
+				optionElement.append('<option/>');
 				var is_object = !$.isArray(option._options);
 				$.each( option._options, function( k, v){
 					var new_option = $('<option/>');
@@ -97,75 +123,86 @@
 					if( is_object ){
 						new_option.attr("value", k);
 					}
-					new_element.append(new_option);
+					optionElement.append(new_option);
 				});
-				
+			
+			// if it's an object then we need to add a child menu
 			} else if( option._type=="object"){
 			
-				new_element = create_hierarchy_menu( option._children, value );
-				
+				optionElement = createHierarchyMenu( option._children, value );
+			
+			// otherwise assume it's an input
 			} else {
 			
-				new_element = $('<input/>');
-				new_element.attr("name", selected_option);
-				new_element.attr("type", option._type );
+				optionElement = $('<input/>');
+				optionElement.attr("name", selectedOption);
+				optionElement.attr("type", option._type );
 				
 			}
 			
+			// if a value is present then set it
 			if( value ){
-				new_element.val( value );
+				optionElement.val( value );
+			// otherwise set a default value
 			} else if( option._default_value ){
-				new_element.val( option._default_value );
+				optionElement.val( option._default_value );
 			}
 			
-			return new_element;
+			return optionElement;
 		
 		}
 		
-		var get_json = function(){
+		// return the list as json
+		var getJson = function(){
 		
-			var list = $(main_element).children('ul');
-			return get_json_list( list );
+			var list = $(config.containerDiv).children('ul');
+			return getJsonList( list );
 		
 		}
 		
-		var get_json_list = function( list ){
+		// turn a single list into json, recursively
+		var getJsonList = function( list ){
 			
-			var json_return = {}
+			var jsonReturn = {}
 			
 			$(list).children("li").each( function(){
-				var key = $(this).find('.' + opts.option_select).val();
-				if( $(this).find('.' + opts.menu_container).find('ul').length > 0 ){
-					var value = get_json_list( $(this).children('.' + opts.menu_container).children('ul') );
+				var key = $(this).find('.' + config.optionSelectClass).val();
+				if( $(this).find('.' + config.menuContainerClass).find('ul').length > 0 ){
+					var value = getJsonList( $(this).children('.' + config.menuContainerClass).children('ul') );
 				} else {
-					var value = $(this).children('.' + opts.menu_container).children('input, select').val();
+					var value = $(this).children('.' + config.menuContainerClass).children('input, select').val();
 				}
 				
-				if( json_return[key] ){
-					if( !$.isArray(json_return[key]) ){
-						json_return[key] = [json_return[key]];
+				// if we've already got a value then include it in an array
+				if( jsonReturn[key] ){
+					if( !$.isArray(jsonReturn[key]) ){
+						jsonReturn[key] = [jsonReturn[key]];
 					}
-					json_return[key].push( value );
+					jsonReturn[key].push( value );
 				} else {
-					json_return[key] = value;
+					jsonReturn[key] = value;
 				}
 			});
 			
-			return json_return;
+			return jsonReturn;
 		}
 		
-		$(main_element).on( 'change', '.' + opts.option_select, function( ev){
+		// look for changes in any of the key selection <select>s
+		// if it's changed then add in the required input element
+		$(config.containerDiv).on( 'change', '.' + config.optionSelectClass, function( ev){
+			console.log("HELLO");
 			ev.prevent_default;
-			var selected_option = $(this).val();
+			var selectedOption = $(this).val();
 			
-			var options_container = $(this).closest("li").children('.' + opts.menu_container).empty();
+			var optionsContainer = $(this).closest("li").children('.' + config.menuContainerClass).empty();
 			var new_option = $(this).closest("li").clone();
-			new_option.children('.' + opts.menu_container).empty();
+			new_option.children('.' + config.menuContainerClass).empty();
 			
-			if( !selected_option){
+			// if it's blank then delete all blank ones and add one blank one
+			if( !selectedOption){
 				var parent_list = $(this).closest("ul");
 				parent_list.children("li").each(function(){
-					if( $(this).children("."+opts.option_select).val()==""){
+					if( $(this).children("."+config.optionSelectClass).val()==""){
 						$(this).remove();
 					}
 				});
@@ -173,9 +210,9 @@
 				return;
 			}
 			
-			
-			var option = opts.json_options;
-			var parents = $(this).parentsUntil(main_element, 'li').reverse().each( function( k, v){
+			// find out the options for this key
+			var option = config.schema;
+			var parents = $(this).parentsUntil(config.containerDiv, 'li').reverse().each( function( k, v){
 				this_key = $(this).find("select").val();
 				option = option["_children"][this_key];
 			});
@@ -184,14 +221,16 @@
 				return;
 			}
 			
-			options_container.append( create_option_element(option, selected_option) );
+			// create the needed element and append it
+			optionsContainer.append( createOptionElement(option, selectedOption) );
 			$(this).closest("ul").append( new_option );
 			
 			
 		});
 		
-		$(main_element).on('change', 'select, input', function(ev){
-			$(opts.json_container).val( JSON.stringify(get_json(), null, 2) );
+		// if anything changes then repopulate the textarea
+		$(config.containerDiv).on('change', 'select, input', function(ev){
+			$(config.jsonTextarea).val( JSON.stringify(getJson(), null, 2) );
 		});
 		
 		initialise();
@@ -199,11 +238,13 @@
 	
 	}
 	
-	$.fn.hierarchy_settings.defaults = {
-		menu_container:"jq-hierarchy-container",
-		option_select:"jq-hierarchy",
-		json_container: "#hierarchy-settings",
-		existing_options: {}
+	// default classes for the plugin
+	$.fn.hierarchySettings.defaults = {
+		menuContainerClass:"jq-hierarchy-container",
+		optionSelectClass:"jq-hierarchy",
+		containerDivID: "hierarchy-menu",
+		showOriginalTextarea: false,
+		existingOptions: null
 	}
 			
 	
