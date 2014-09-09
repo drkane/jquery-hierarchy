@@ -1,5 +1,5 @@
 /*
- * hierarchy options plugin v0.1.0
+ * hierarchy options plugin v0.2.0
  * https://github.com/drkane/jquery-hierarchy
  *
  * Copyright (c) 2014 David Kane. All rights reserved. 
@@ -18,6 +18,9 @@
 		// get configuration data
 		var config = $.extend( {}, $.fn.hierarchySettings.defaults, settings );
 		config["schema"] = schema;
+		if(!config.schema["_children"]){
+			config.schema = { "_children": config.schema };
+		}
 		if(!config.existingOptions){
 			config["existingOptions"] = $.parseJSON( $(this).val() );
 		}
@@ -69,33 +72,40 @@
 		var createHierarchyElement = function ( list, key, value ){
 		
 			var li = $('<li/>');
-			var select = $('<select/>');
 			var container = $('<span/>');
 			container.addClass( config.menuContainerClass )
-			select.addClass( config.optionSelectClass )
 			
-			$(select).append('<option/>');
-			
-			$.each( list, function( k, v ){
-				var option = $('<option>');
-				if( v._label ){
-					label = v._label;
-				} else {
-					label = k;
+			if( list ){
+				var select = $('<select/>');
+				
+				$(select).append('<option/>');
+				
+				$.each( list, function( k, v ){
+					var option = $('<option>');
+					if( v._label ){
+						label = v._label;
+					} else {
+						label = k;
+					}
+					option.val(k);
+					option.text(label);
+					$(select).append(option);
+				});
+				if( typeof value != "undefined" ){
+					var selectedOption = list[key];
 				}
-				option.val(k);
-				option.text(label);
-				$(select).append(option);
-			});
-			
-			if( value ){
-				var selectedOption = list[key];
-				if(selectedOption){
-					container.append( createOptionElement(selectedOption, key, value) );
-					select.val( key );
+			} else {
+				var select = $('<input/>');
+				if( typeof value != "undefined" ){
+					var selectedOption = key;
 				}
 			}
+			if(selectedOption){
+				container.append( createOptionElement(selectedOption, key, value) );
+				select.val( key );
+			}
 			
+			select.addClass( config.optionSelectClass )
 			li.append(select);
 			li.append(container);
 			return li;
@@ -106,6 +116,22 @@
 		var createOptionElement = function( option, selectedOption, value ){
 			
 			var optionElement = null;
+			
+			// if no option type is set then guess what type it is 
+			if( !option._type ){
+				// if there are children it's probably an object
+				if( option._children ){
+					option._type = "object";
+				
+				// if there are options then it's a select
+				} else if( option._options ){
+					option._type = "select";
+						
+				// otherwise it's a text box
+				} else {
+					option._type = "text";
+				}
+			}
 			
 			// if it's a boolean then we do it as select anyway
 			if( option._type=="select" || option._type=="bool" ){
@@ -129,6 +155,7 @@
 			// if it's an object then we need to add a child menu
 			} else if( option._type=="object"){
 			
+				option = checkExtendableOption( option );
 				optionElement = createHierarchyMenu( option._children, value );
 			
 			// otherwise assume it's an input
@@ -141,8 +168,13 @@
 			}
 			
 			// if a value is present then set it
-			if( value ){
-				optionElement.val( value );
+			if( typeof value != "undefined" ){
+				if( value==null){
+					strvalue = "null";
+				} else {
+					strvalue = value.toString()
+				}
+				optionElement.val( strvalue );
 			// otherwise set a default value
 			} else if( option._default_value ){
 				optionElement.val( option._default_value );
@@ -158,6 +190,28 @@
 			var list = $(config.containerDiv).children('ul');
 			return getJsonList( list );
 		
+		}
+		
+		// find out if this option is extending another one
+		var checkExtendableOption = function( option ){
+			if( option._extends ){
+				extendableOption = option._extends.split("-");
+				var reference = config.schema;
+				var all_options_found = true;
+				$.each( extendableOption, function(key, value){
+					if( reference["_children"][value] ){
+						reference = reference["_children"][value];
+					} else {
+						all_options_found = false;
+					}
+				});
+				if(all_options_found){
+					reference = checkExtendableOption( reference ); // nested for recursive extending
+					if(!option._children){ option._children = {}; }
+					$.extend( option._children, reference._children );
+				}
+			}
+			return option;
 		}
 		
 		// turn a single list into json, recursively
@@ -190,7 +244,6 @@
 		// look for changes in any of the key selection <select>s
 		// if it's changed then add in the required input element
 		$(config.containerDiv).on( 'change', '.' + config.optionSelectClass, function( ev){
-			console.log("HELLO");
 			ev.prevent_default;
 			var selectedOption = $(this).val();
 			
@@ -211,14 +264,18 @@
 			}
 			
 			// find out the options for this key
-			var option = config.schema;
-			var parents = $(this).parentsUntil(config.containerDiv, 'li').reverse().each( function( k, v){
-				this_key = $(this).find("select").val();
-				option = option["_children"][this_key];
-			});
+			if( $(this).prop("tagName")=="SELECT"){
+				var option = config.schema;
+				var parents = $(this).parentsUntil(config.containerDiv, 'li').reverse().each( function( k, v){
+					this_key = $(this).find("select").val();
+					option = option["_children"][this_key];
+				});
+				if(!option){
+					return;
+				}
 			
-			if(!option){
-				return;
+			} else if( $(this).prop("tagName")=="INPUT" ) {
+				var option = {};
 			}
 			
 			// create the needed element and append it
