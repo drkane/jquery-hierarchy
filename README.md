@@ -43,7 +43,7 @@ $('#settings-textarea').hierarchySettings( schema, config );
 
 The `config` object holds any configuration options for the plugin.
 
-The returned json object is currently only accessed through the original <textarea>, which is updated every time the list is changed. Future versions hope to make the json object easier to access through other methods. The textarea is hidden by default, but can be show by setting `config.showOriginalTextarea` to `true`.
+The returned json object is currently only accessed through the original `<textarea>`, which is updated every time the list is changed. Future versions hope to make the json object easier to access through other methods. The textarea is hidden by default, but can be show by setting `config.showOriginalTextarea` to `true`.
 
 How to use the form
 -------------------
