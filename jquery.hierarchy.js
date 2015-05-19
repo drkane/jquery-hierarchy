@@ -1,11 +1,11 @@
 /*
- * hierarchy options plugin v0.2.0
+ * hierarchy options plugin v0.3.0
  * https://github.com/drkane/jquery-hierarchy
  *
  * Copyright (c) 2014 David Kane. All rights reserved. 
  * Released under the GPL
  * 
- * Date: 2014-09-07
+ * Date: 2015-05-19
  */
 (function( $ ) {
 	
@@ -41,6 +41,8 @@
 			// hide the textarea if we're meant to
 			if(!config.showOriginalTextarea){
 				$(config.jsonTextarea).hide();
+			} else {
+				$(config.jsonTextarea).attr("disabled", "disabled");
 			}
 			
 			// put the current configuration into the original textarea
@@ -73,7 +75,7 @@
 		
 			var li = $('<li/>');
 			var container = $('<span/>');
-			container.addClass( config.menuContainerClass )
+			container.addClass( config.menuContainerClass );
 			
 			if( list ){
 				var select = $('<select/>');
@@ -82,12 +84,21 @@
 				
 				$.each( list, function( k, v ){
 					var option = $('<option>');
+					try {
 					if( v._label ){
 						label = v._label;
 					} else {
 						label = k;
 					}
-					option.val(k);
+					} catch( err) {
+						console.log( v, err);
+					}
+					var option_value = k;
+					if(typeof v._save_as != "undefined"){
+						option.attr("data-save_as", v._save_as);
+					}
+					
+					option.val(option_value);
 					option.text(label);
 					$(select).append(option);
 				});
@@ -117,6 +128,13 @@
 			
 			var optionElement = null;
 			
+			// if we're meant to, then force any options with children to be an object
+			if( config.forceChildrenToObjects ){
+				if( option._children ){
+					option._type = "object";
+				}
+			}
+			
 			// if no option type is set then guess what type it is 
 			if( !option._type ){
 				// if there are children it's probably an object
@@ -132,7 +150,7 @@
 					option._type = "text";
 				}
 			}
-			
+			console.log(option);
 			// if it's a boolean then we do it as select anyway
 			if( option._type=="select" || option._type=="bool" ){
 			
@@ -159,12 +177,26 @@
 				optionElement = createHierarchyMenu( option._children, value );
 			
 			// otherwise assume it's an input
+			} else if( option._type=="numeric") {
+			
+				optionElement = $('<input/>');
+				optionElement.attr("name", selectedOption);
+				optionElement.attr("type", "number" );
+				
 			} else {
 			
 				optionElement = $('<input/>');
 				optionElement.attr("name", selectedOption);
 				optionElement.attr("type", option._type );
 				
+			}
+			
+			optionElement.attr("data-field_type", option._type);
+			
+			if( typeof option._description != "undefined" ){
+				optionElement.attr("title", option._description);
+			} else {
+				optionElement.removeAttr("title");
 			}
 			
 			// if a value is present then set it
@@ -178,6 +210,8 @@
 			// otherwise set a default value
 			} else if( option._default_value ){
 				optionElement.val( option._default_value );
+			} else if( option._default ){
+				optionElement.val( option._default );
 			}
 			
 			return optionElement;
@@ -207,7 +241,12 @@
 				});
 				if(all_options_found){
 					reference = checkExtendableOption( reference ); // nested for recursive extending
-					if(!option._children){ option._children = {}; }
+					if(!option._children){ 
+						option._children = {}; 
+					}
+					if(option._children == [] || $.isEmptyObject(option._children) ){ 
+						option._children = {}; 
+					}
 					$.extend( option._children, reference._children );
 				}
 			}
@@ -220,11 +259,26 @@
 			var jsonReturn = {}
 			
 			$(list).children("li").each( function(){
+				// get the key for this item
 				var key = $(this).find('.' + config.optionSelectClass).val();
+				
+				// if we've also found a "save as" description then use that instead of the key
+				if( $(this).find('.' + config.optionSelectClass).find(":selected").data("save_as") ){
+					key = $(this).find('.' + config.optionSelectClass).find(":selected").data("save_as");
+				}
+				
 				if( $(this).find('.' + config.menuContainerClass).find('ul').length > 0 ){
 					var value = getJsonList( $(this).children('.' + config.menuContainerClass).children('ul') );
 				} else {
 					var value = $(this).children('.' + config.menuContainerClass).children('input, select').val();
+					
+					var value_type = $(this).children('.' + config.menuContainerClass).children('input, select').data("field_type");
+					if(value_type=="bool"){
+						if(value=="true"){ value= true; } else if(value=="false"){ value= false; }
+					}
+					if(value_type=="numeric"){
+						value = Number(value);
+					}
 				}
 				
 				// if we've already got a value then include it in an array
@@ -252,16 +306,13 @@
 			new_option.children('.' + config.menuContainerClass).empty();
 			
 			// if it's blank then delete all blank ones and add one blank one
-			if( !selectedOption){
-				var parent_list = $(this).closest("ul");
-				parent_list.children("li").each(function(){
-					if( $(this).children("."+config.optionSelectClass).val()==""){
-						$(this).remove();
-					}
-				});
-				parent_list.append( new_option );
-				return;
-			}
+			var parent_list = $(this).closest("ul");
+			parent_list.children("li").each(function(){
+				if( $(this).children("."+config.optionSelectClass).val()==""){
+					$(this).remove();
+				}
+			});
+			parent_list.append( new_option );
 			
 			// find out the options for this key
 			if( $(this).prop("tagName")=="SELECT"){
@@ -272,6 +323,12 @@
 				});
 				if(!option){
 					return;
+				}
+				
+				if( typeof option._description != "undefined" ){
+					$(this).attr("title", option._description);
+				} else {
+					$(this).removeAttr("title");
 				}
 			
 			} else if( $(this).prop("tagName")=="INPUT" ) {
@@ -300,8 +357,9 @@
 		menuContainerClass:"jq-hierarchy-container",
 		optionSelectClass:"jq-hierarchy",
 		containerDivID: "hierarchy-menu",
-		showOriginalTextarea: false,
-		existingOptions: null
+		showOriginalTextarea: false,		// whether to hide the original text area (useful for debugging)
+		existingOptions: null,				// if this is set then the data from the original text area won't be shown
+		forceChildrenToObjects: true 		// if an item has children then force it to be an object, no matter what the type says
 	}
 			
 	
